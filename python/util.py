@@ -3,46 +3,11 @@ import scipy
 import subprocess;
 import os;
 
-def readFlowFile(file_name,flip=False):
-    data2D=None
-    with open(file_name,'rb') as f:
-        magic = np.fromfile(f, np.float32, count=1)
-        if 202021.25 != magic:
-            print 'Magic number incorrect. Invalid .flo file'
-        else:
-            w = np.fromfile(f, np.int32, count=1)
-            h = np.fromfile(f, np.int32, count=1)
-            if w.size==0 or h.size==0:
-                # print type(w),type(h),w,h
-                data2D=None;
-            else:               
-                # print (w, h)
-                data = np.fromfile(f, np.float32, count=2*w*h)
-                # Reshape data into 3D array (columns, rows, bands)
-                # if flip is True:
-                #     data2D = np.resize(data, (w, h, 2))
-                #     data2D = data2D.
-                #     data2D = np.reshape(data, (h, w, 2))
-                #     # ,order='F')
-                # else:
-                data2D = np.reshape(data, (h, w, 2))
-                # print data2D.shape
-    return data2D
 
-
-def writeFlowFile(arr,file_name):
-    with open(file_name, 'wb') as f:
-        magic=np.float32(202021.25);
-        f.write(magic)
-        w=np.int32(arr.shape[1])
-        h=np.int32(arr.shape[0])
-        f.write(np.int32(w));
-        f.write(np.int32(h));
-        for val in arr.ravel():
-            f.write(np.float32(val));
-
-
-
+def getFilesInFolder(folder,ext):
+    list_files=[os.path.join(folder,file_curr) for file_curr in os.listdir(folder) if file_curr.endswith(ext)];
+    return list_files;     
+    
 def getStartingFiles(dir_curr,img_name):
     files=[file_curr for file_curr in os.listdir(dir_curr) if file_curr.startswith(img_name)];
     return files;
@@ -61,17 +26,20 @@ def getFileNames(file_paths,ext=True):
         file_names=[file_curr[:file_curr.rindex('.')] for file_curr in just_files];
     return file_names;
 
-
 def getRelPath(file_curr,replace_str='/disk2'):
     count=file_curr.count('/');
     str_replace='../'*count
     rel_str=file_curr.replace(replace_str,str_replace);
     return rel_str;
 
-
 def mkdir(dir_curr):
     if not os.path.exists(dir_curr):
         os.mkdir(dir_curr);
+
+def makedirs(dir_curr):
+    if not os.path.exists(dir_curr):
+        os.makedirs(dir_curr);
+
 
 def getIndexingArray(big_array,small_array):
     small_array=np.array(small_array);
@@ -143,13 +111,13 @@ def getIOU(box_1,box_2):
     return iou
 
 def escapeString(string):
-    special_chars=' !"&\'()*,:;<=>?@[]`{|}';
+    special_chars='!"&\'()*,:;<=>?@[]`{|}';
     for special_char in special_chars:
         string=string.replace(special_char,'\\'+special_char);
     return string
 
 def replaceSpecialChar(string,replace_with):
-    special_chars=' !"&\'()*,:;<=>?@[]`{|}';
+    special_chars='!"&\'()*,:;<=>?@[]`{|}';
     for special_char in special_chars:
         string=string.replace(special_char,replace_with);
     return string
@@ -167,22 +135,4 @@ def getAllSubDirectories(meta_dir):
     sub_dirs=[dir_curr for dir_curr in sub_dirs if dir_curr];
     return sub_dirs
     
-   
-def getFilesInFolder(folder,ext):
-    list_files=[os.path.join(folder,file_curr) for file_curr in os.listdir(folder) if file_curr.endswith(ext)];
-    return list_files;     
-
-def getColumnsFromLines(lines,split_by=' '):
-    line_1=lines[0];
-    line_1=line_1.split(split_by);
-    len_split=len(line_1);
-    line_split_all=[];
-    for line in lines:
-        line_split=line.split(split_by);
-        assert len(line_split)==len_split;
-
-        line_split_all.append(line_split);
-
-    line_split_all=zip(*line_split_all);
-    line_split_all=[list(line_split_curr) for line_split_curr in line_split_all];
-    return line_split_all;
+        
