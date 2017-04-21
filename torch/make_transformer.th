@@ -1,0 +1,86 @@
+require 'nn';
+require 'cudnn';
+require 'stn';
+require 'cunn';
+
+local out_dir='/disk3/maheen_data/apples/model';
+paths.mkdir(out_dir);
+local out_file=paths.concat(out_dir,'model.dat');
+
+local locnet = nn.Sequential();
+locnet:add(cudnn.SpatialMaxPooling(2,2,2,2));
+locnet:add(cudnn.SpatialConvolution(240,64,11,11,5,5));
+locnet:add(nn.SpatialBatchNormalization(64));
+locnet:add(cudnn.ReLU(true));
+locnet:add(cudnn.SpatialMaxPooling(2,2,2,2));
+locnet:add(cudnn.SpatialConvolution(64,10,2,2));
+locnet:add(nn.SpatialBatchNormalization(10));
+locnet:add(cudnn.ReLU(true));
+locnet:add(nn.View(10*10*78));
+locnet:add(nn.Linear(10*10*78,10));
+locnet:add(nn.BatchNormalization(10));
+locnet:add(cudnn.ReLU(true));
+locnet:add(nn.Linear(10,6));
+locnet:get(#locnet).weight:fill(0);
+
+local bias = torch.FloatTensor(6):fill(0)
+bias[1]=1
+bias[5]=1
+locnet:get(#locnet).bias:copy(bias)
+
+-- there we generate the grids
+locnet:add(nn.View(2,3))
+-- locnet:add(nn.AffineTransformMatrixGenerator(false,false,true));
+locnet:add(nn.AffineGridGeneratorBHWD(64,64));
+
+local spanet=nn.Sequential();
+local concat=nn.ConcatTable();
+
+-- first branch is there to transpose inputs to BHWD, for the bilinear sampler
+tranet=nn.Sequential();
+tranet:add(nn.Identity());
+tranet:add(nn.Transpose({2,3},{3,4}));
+
+-- we need a table input for the bilinear sampler, so we use concattable
+concat:add(tranet);
+concat:add(locnet);
+
+spanet:add(concat);
+spanet:add(nn.BilinearSamplerBHWD());
+
+-- and we transpose back to standard BDHW format for subsequent processing by nn modules
+spanet:add(nn.Transpose({3,4},{2,3}));
+
+
+local full_net=nn.Sequential();
+full_net:add(spanet);
+full_net:add(cudnn.SpatialConvolution(240,64,3,3));
+full_net:add(nn.SpatialBatchNormalization(64));
+full_net:add(cudnn.ReLU(true));
+full_net:add(cudnn.SpatialMaxPooling(2,2,2,2));
+full_net:add(cudnn.SpatialConvolution(64,32,3,3));
+full_net:add(nn.SpatialBatchNormalization(32));
+full_net:add(cudnn.ReLU(true));
+full_net:add(cudnn.SpatialMaxPooling(2,2,2,2));
+full_net:add(cudnn.SpatialConvolution(32,16,3,3));
+full_net:add(nn.SpatialBatchNormalization(16));
+full_net:add(cudnn.ReLU(true));
+full_net:add(nn.View(16*12*12));
+full_net:add(nn.Linear(16*12*12,16));
+full_net:add(nn.BatchNormalization(16));
+full_net:add(cudnn.ReLU(true));
+full_net:add(nn.Linear(16,1));
+
+cudnn.convert(full_net,cudnn)
+
+torch.save(out_file,full_net);
+
+full_net=full_net:cuda();
+print (full_net);
+-- locnet=locnet:cuda();
+input=torch.rand(torch.LongStorage{4,240,250,1600});
+input=input:cuda();
+output=full_net:forward(input);
+-- print (spanet);
+print (output:size());
+

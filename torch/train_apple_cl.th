@@ -1,0 +1,183 @@
+require 'image'
+npy4th = require 'npy4th'
+require 'apple_data';
+require 'cunn'
+require 'cudnn'
+require 'nn';
+require 'optim'
+require 'stn'
+npy4th=require 'npy4th';
+require 'torchx';
+
+
+local fevalScore = function(x)
+    if x ~= parameters then
+	    parameters:copy(x)
+    end
+    
+    td:getTrainingData();
+    print ('done loading data',td.training_set.data:size(1));
+    
+    local batch_inputs = td.training_set.data:cuda();
+    local batch_targets = td.training_set.label:cuda();
+    
+    -- local batch_inputs = td.training_set.data:clone();
+    -- local batch_targets = td.training_set.label:clone();
+    
+    gradParameters:zero()
+ 	
+    local loss = criterion:forward(net:forward(batch_inputs),batch_targets);
+    net:backward(batch_inputs, criterion:backward(net.output, batch_targets))
+    
+    return loss, gradParameters;
+end
+
+
+function main(params) 
+
+	local pos_path=params.pos_path;
+	local neg_path=params.neg_path;
+	local out_dir=params.outDir
+    local net_file=params.model
+    
+    paths.mkdir(out_dir);
+    local out_dir_intermediate=paths.concat(out_dir,'intermediate');
+    local out_dir_final=paths.concat(out_dir,'final');
+    paths.mkdir(out_dir_intermediate);
+    paths.mkdir(out_dir_final);
+    
+    local out_file_net=out_dir_final..'/'..'model_all_final.dat';
+
+    local out_file_loss=out_dir_final..'/'..'loss_final.npy';
+    
+    local out_file_intermediate_pre = out_dir_intermediate..'/'..'model_all_';
+    local out_file_loss_intermediate_pre = out_dir_intermediate..'/'..'loss_all_';
+
+    print (params);
+
+    cutorch.setDevice(params.gpu);
+
+    local optimState       
+    local optimMethod      
+
+	optimMethod = optim.adam
+	optimState={learningRate=params.learningRate
+    ,learningRateDecay=params.learningRateDecay ,beta1=params.beta1 ,beta2=params.beta2 ,epsilon=params.epsilon }
+
+
+    print ('loading network');
+
+    net = torch.load(net_file);
+    
+    print ('done loading network');
+    print (net);
+
+    print ('making cuda');
+    net = net:cuda();
+    print ('done');
+
+    print ('loading params');
+    parameters, gradParameters = net:getParameters()
+    print ('loading done');
+    print (optimState)
+
+    local td_params={file_path_pos = pos_path,
+                    file_path_neg = neg_path,
+                    mean_file = params.mean_path,
+                    shuffle = params.shuffle,
+                    batch_size_pos = params.batch_size_pos,
+                    batch_size_neg = params.batch_size_neg,
+                    limit = nil};
+
+    if params.limit>0 then
+        td_params.limit = params.limit;	
+    end
+    
+    td = data(td_params)
+    -- td:getTrainingData();
+    -- td.training_set.data = td.training_set.data:cuda();
+    -- td.training_set.label = td.training_set.label:cuda();
+    
+    -- td:getTrainingData();
+    -- print (td.training_set.data:size());
+    -- print (td.training_set.label);
+    -- for i=1,td.training_set.data:size(1) do
+    --     local im=td.training_set.data[i];
+    --     print (torch.min(im),torch.max(im))
+    -- end
+    
+    criterion = nn.SoftMarginCriterion():cuda();
+ 
+    local losses = {};
+    
+    for i=1,params.iterations do
+    	
+        local _, minibatch_loss = optimMethod(fevalScore,parameters, optimState)
+        losses[#losses + 1] = minibatch_loss[1] -- append the new loss        
+
+        if i%params.dispAfter==0 then
+            print(string.format("lr: %6s, minibatches processed: %6s, loss = %6.6f", optimState.learningRate,i, 
+                losses[#losses]));
+
+            local str_score=''..losses[#losses];
+            
+            if str_seg=='nan' or str_score=='nan' then
+                print('QUITTING');
+                break;
+            end
+        end
+
+        -- check if model needs to be saved. save it.
+        -- also save losses
+        if i%params.saveAfter==0 then
+            local out_file_intermediate=out_file_intermediate_pre..i..'.dat';
+            torch.save(out_file_intermediate,net);
+            local out_file_loss_intermediate=out_file_loss_intermediate_pre..i..'.npy';
+            npy4th.savenpy(out_file_loss_intermediate, torch.Tensor(losses))
+            
+        end
+	end
+
+    -- save final model
+    torch.save(out_file_net,net);
+    npy4th.savenpy(out_file_loss, torch.Tensor(losses))
+    
+
+end
+
+
+
+
+cmd = torch.CmdLine()
+cmd:text()
+cmd:text('Train Apple Detection network')
+cmd:text()
+cmd:text('Options')
+cmd:option('-model','/disk3/maheen_data/apples/model/model.dat','model to load')
+cmd:option('-outDir','/disk3/maheen_data/apples/train','directory to write output');
+
+cmd:option('-limit',-1,'num of training data to read');
+cmd:option('-shuffle',true,'shuffle input data');
+cmd:option('-batch_size_neg',1,'batch size negative data'); 
+cmd:option('-batch_size_pos',1,'batch size positive data'); 
+
+cmd:option('-iterations',300,'num of iterations to run');
+cmd:option('-saveAfter',50,'num of iterations after which to save model');
+cmd:option('-dispAfter',1,'num iterations after which to display training loss');
+
+cmd:option('-pos_path','/disk3/maheen_data/apples/pos_train.txt')
+cmd:option('-neg_path','/disk3/maheen_data/apples/neg_train.txt')
+cmd:option('-mean_path','/disk3/maheen_data/apples/mean_im.npy')
+
+cmd:option('learningRate', 1e-2)
+cmd:option('learningRateDecay',5e-6)
+cmd:option('beta1', 0.9)
+cmd:option('beta2', 0.999)
+cmd:option('epsilon', 1e-8)
+
+cmd:option('-gpu',1,'gpu to run the training on');
+cmd:text()
+
+params = cmd:parse(arg)
+main(params);
+
