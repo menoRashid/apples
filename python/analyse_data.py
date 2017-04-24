@@ -1,11 +1,14 @@
 import os;
 import util;
-import gdal;
-import matplotlib.pyplot as plt;
+# import gdal;
+import visualize;
+# import matplotlib.pyplot as plt;
 import numpy as np;
 import multiprocessing;
 import shutil;
 import random;
+import scipy.misc;
+
 
 def readBilFile(bil):
     gdal.GetDriverByName('EHdr').Register()
@@ -105,10 +108,65 @@ def saveAverageNpy():
     avg=getAverageNpy(files);
     np.save(avg_file,avg);
 
+def rewriteDataFiles():
+    files=[pre+'_'+post+'.txt' for pre in ['neg','pos'] for post in ['train','test']];
+
+    old_str='/disk3/maheen_data/apples'
+    new_str='../data';
+    for file_curr in files:
+        file_curr=os.path.join(new_str,file_curr);
+        print file_curr;
+        lines=util.readLinesFromFile(file_curr);
+        print lines[0];
+        lines=[line_curr.replace(old_str,new_str) for line_curr in lines];
+        print lines[0];
+        util.writeFile(file_curr,lines);
+
+def saveSmallNpy():
+    dir_meta = '../data';
+    files=[pre+'_'+post+'.txt' for pre in ['neg','pos'] for post in ['train','test']];
+    out_dir_im=os.path.join('../scratch','viz_cut');
+    util.mkdir(out_dir_im);
+    # for idx_file,file_curr in enumerate(files):
+        
+    #     file_curr=os.path.join(dir_meta,file_curr);
+    #     file_new=file_curr[:file_curr.rindex('.')]+'_small.txt'
+    #     lines=util.readLinesFromFile(file_curr);
+    #     print (len(lines))
+    #     lines_new=[];
+    #     for idx_line,line_curr in enumerate(lines):
+    #         out_dir_big=os.path.split(line_curr)[0];
+    #         file_name=os.path.split(line_curr)[1];
+    #         out_dir_small=out_dir_big+'_small';
+    #         util.mkdir(out_dir_small);
+            
+    #         im=np.load(line_curr);
+    #         for idx_start,im_start in enumerate(range(100,1500,500)):
+    #             out_file=os.path.join(out_dir_small,file_name[:file_name.rindex('.')]+'_'+str(idx_start)+'.npy');
+    #             im_curr=im[:,:,im_start:im_start+500];
+    #             im_viz=im_curr[100,:,:];
+    #             # print im_viz.shape
+    #             scipy.misc.imsave(out_file[:out_file.rindex('.')]+'.jpg',im_viz);
+    #             np.save(out_file,im_curr);
+    #             print out_file
+    #             lines_new.append(out_file);
+
+    #     util.writeFile(file_new,lines_new);
+    #     print file_new,len(lines_new),lines_new[0]
+    visualize.writeHTMLForFolder(out_dir_im);
 
 def main():
-    
-    
+
+    saveSmallNpy()
+    # file_in='../data/mean_im.npy'
+    # out_file='../data/mean_im_small.npy'
+    # im=np.load(file_in);
+    # print im.shape;
+    # im=im[:,:,-500:];
+    # print im.shape;
+    # np.save(out_file,im);
+    # visualize.writeHTMLForFolder(out_dir_im);
+
 
     return
     in_folder_meta='/Users/maheenrashid/Dropbox (Personal)/Davis_docs/apples/Dipped Apples_Jul02';
