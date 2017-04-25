@@ -35,7 +35,7 @@ function makeXavierGaussian(model)
     return model
 end
 
-function main()
+function makeConvAlexnet()
 	local model_file='../models/alexnet_classifier_lastScratch_untrained.dat'
 	local out_file='../models/alex_conv_dropout.dat'
 	local net=torch.load(model_file);
@@ -58,6 +58,25 @@ function main()
     torch.save(out_file,net);
     print (out:size())
 
+end
+
+function main()
+	-- local model_file='../models/alexnet_classifier_lastScratch_untrained.dat'
+	local out_file='../models/small_conv.dat'
+	local net=nn.Sequential();
+	net:add(nn.SpatialConvolution(240,3,11,11,11,11));
+	net:add(nn.SpatialConvolution(3,1,1,1));
+	net=makeXavierGaussian(net);
+	net=net:cuda();
+    print (net);
+	
+	local input = torch.zeros(4,240,250,500):cuda();
+    local out=net:forward(input);
+    print (out:size())
+    net:double();
+    net:clearState();
+    torch.save(out_file,net);
+    
 end
 
 main();

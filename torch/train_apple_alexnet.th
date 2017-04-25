@@ -11,38 +11,96 @@ require 'gnuplot';
 dump=require 'dump';
 visualize=require 'visualize';
 
+function getOptimStateTotal(params,parameters,layer_pivot,logger)
+    local optimStateTotal={}
 
-local fevalScore = function(x)
-    if x ~= parameters then
-	    parameters:copy(x)
+    for layer_num=1,#parameters do
+        local str=''..layer_num;
+        for layer_size_idx=1,#parameters[layer_num]:size() do
+            str=str..' '..parameters[layer_num]:size(layer_size_idx);
+        end
+
+        local learningRate_curr=params.learningRate;
+        if layer_num<=layer_pivot[1] then
+            learningRate_curr=1;
+        elseif layer_num>=layer_pivot[2] then
+            learningRate_curr=learningRate_curr;
+        else
+            learningRate_curr=1/100*learningRate_curr;
+        end
+
+        local optimState_curr={learningRate=learningRate_curr,
+                learningRateDecay=params.learningRateDecay ,
+                beta1=params.beta1 ,
+                beta2=params.beta2 ,
+                epsilon=params.epsilon };
+
+        str=str..' '..optimState_curr.learningRate;
+        print (str);
+        logger:writeString(dump.tostring(str)..'\n');
+        optimStateTotal[#optimStateTotal+1]=optimState_curr;
     end
-    -- local t=os.clock();
-    td:getTrainingData();
-    -- print ('done training data',os.clock()-t);
-    
-    -- local batch_inputs = td.training_set.data:cuda();
-    -- local batch_targets = td.training_set.label:cuda();
+    return optimStateTotal;
+end
 
-    -- t=os.clock();
+function doTheUpdate(td,net,criterion,parameters,gradParameters,optimMethod,optimStateTotal)
+    
+    td:getTrainingData();
+    
     if td.training_set.data:type()~='torch.CudaTensor' then
         td.training_set.data = td.training_set.data:cuda();
         td.training_set.label = td.training_set.label:cuda();
     end    
     local batch_inputs = td.training_set.data;
     local batch_targets = td.training_set.label;
-    -- print ('moving cuda',os.clock()-t);
     
-    -- local batch_inputs = td.training_set.data:clone();
-    -- local batch_targets = td.training_set.label:clone();
-    
-    -- t=os.clock();
     net:zeroGradParameters();
     local loss = criterion:forward(net:forward(batch_inputs),batch_targets);
     net:backward(batch_inputs, criterion:backward(net.output, batch_targets))
-    -- print ('forward backward',os.clock()-t);
+    
+    for layer_num=1, #parameters do
+        -- idx_layer_num,layer_num  in pairs({1,2,#parameters-1,#parameters}) do
+        -- print (layer_num);
+        local fevalScoreVar = function(x)
+            return loss, gradParameters[layer_num]
+        end
+        optimMethod(fevalScoreVar, parameters[layer_num], optimStateTotal[layer_num]);
+    end
 
-    return loss, gradParameters;
+    return loss;
 end
+
+-- local fevalScore = function(x)
+--     if x ~= parameters then
+-- 	    parameters:copy(x)
+--     end
+--     -- local t=os.clock();
+--     td:getTrainingData();
+--     -- print ('done training data',os.clock()-t);
+    
+--     -- local batch_inputs = td.training_set.data:cuda();
+--     -- local batch_targets = td.training_set.label:cuda();
+
+--     -- t=os.clock();
+--     if td.training_set.data:type()~='torch.CudaTensor' then
+--         td.training_set.data = td.training_set.data:cuda();
+--         td.training_set.label = td.training_set.label:cuda();
+--     end    
+--     local batch_inputs = td.training_set.data;
+--     local batch_targets = td.training_set.label;
+--     -- print ('moving cuda',os.clock()-t);
+    
+--     -- local batch_inputs = td.training_set.data:clone();
+--     -- local batch_targets = td.training_set.label:clone();
+    
+--     -- t=os.clock();
+--     net:zeroGradParameters();
+--     local loss = criterion:forward(net:forward(batch_inputs),batch_targets);
+--     net:backward(batch_inputs, criterion:backward(net.output, batch_targets))
+--     -- print ('forward backward',os.clock()-t);
+
+--     return loss, gradParameters;
+-- end
 
 
 function main(params) 
@@ -80,15 +138,12 @@ function main(params)
 
     cutorch.setDevice(params.gpu);
 
-    local optimState       
-    local optimMethod      
-
-	optimMethod = optim.adam
-	optimState={learningRate=params.learningRate,
-        learningRateDecay=params.learningRateDecay ,
-        beta1=params.beta1 ,
-        beta2=params.beta2 ,
-        epsilon=params.epsilon }
+    
+	-- optimState={learningRate=params.learningRate,
+ --        learningRateDecay=params.learningRateDecay ,
+ --        beta1=params.beta1 ,
+ --        beta2=params.beta2 ,
+ --        epsilon=params.epsilon }
 
 
     print ('loading network');
@@ -102,17 +157,23 @@ function main(params)
 
     logger:writeString(dump.tostring('making cuda')..'\n');
     print ('making cuda');
-    net = net:cuda();
+    local net = net:cuda();
     logger:writeString(dump.tostring('done')..'\n');
     print ('done');
 
     print ('loading params');
     logger:writeString(dump.tostring('loading params')..'\n');
-    parameters, gradParameters = net:getParameters()
+    local parameters, gradParameters = net:parameters()
     logger:writeString(dump.tostring('loading done')..'\n');
     print ('loading done');
     
-    
+    local optimState       
+    local optimMethod      
+
+    optimMethod = optim.adam
+    local layer_pivot={2,#parameters-1};
+    local optimStateTotal=getOptimStateTotal(params,parameters,layer_pivot,logger)    
+
     
     local td_params={file_path_pos = params.pos_path,
                     file_path_neg = params.neg_path,
@@ -121,8 +182,9 @@ function main(params)
                     batch_size_pos = params.batch_size_pos,
                     batch_size_neg = params.batch_size_neg,
                     limit = params.limit};
-    td = data(td_params)
+    local td = data(td_params)
 
+    local vd;
     if params.testAfter>0 then
         local vd_params={file_path_pos = params.val_pos_path,
                     file_path_neg = params.val_neg_path,
@@ -137,7 +199,9 @@ function main(params)
     
 
     
-    criterion = nn.MarginCriterion():cuda();
+    local criterion = nn.MarginCriterion():cuda();
+    -- SoftMarginCriterion():cuda();
+    -- 
     -- print (criterion.sizeAverage);
     -- criterion.sizeAverage=false;
  
@@ -148,12 +212,13 @@ function main(params)
 
     for i=1,params.iterations do
     	
-        local _, minibatch_loss = optimMethod(fevalScore,parameters, optimState)
-        losses[#losses + 1] = minibatch_loss[1] -- append the new loss        
+        -- local _, minibatch_loss = optimMethod(fevalScore,parameters, optimState)
+        local minibatch_loss = doTheUpdate(td,net,criterion,parameters,gradParameters,optimMethod,optimStateTotal)
+        losses[#losses + 1] = minibatch_loss -- append the new loss        
         losses_iter[#losses_iter+1]=i;
 
         if i%params.dispAfter==0 then
-            local disp_str=string.format("lr: %6s, minibatches processed: %6s, loss = %6.6f", optimState.learningRate,i, 
+            local disp_str=string.format("lr: %6s, minibatches processed: %6s, loss = %6.6f", optimStateTotal[1].learningRate,i, 
                 losses[#losses])
             print(disp_str);
             logger:writeString(dump.tostring(disp_str)..'\n');
@@ -219,7 +284,7 @@ cmd:text('Train Apple Detection network')
 cmd:text()
 cmd:text('Options')
 cmd:option('-model','../models/alex_conv_dropout.dat','model to load')
-cmd:option('-outDir','../experiments/train_dropout_5e-3','directory to write output');
+cmd:option('-outDir','../experiments/train_check','directory to write output');
 
 cmd:option('-limit',-1,'num of training data to read');
 cmd:option('-shuffle',true,'shuffle input data');
@@ -239,7 +304,7 @@ cmd:option('-mean_path','../data/mean_im_small.npy')
 cmd:option('-val_pos_path','../data/pos_test_small.txt')
 cmd:option('-val_neg_path','../data/neg_test_small.txt')
 
-cmd:option('learningRate', 5e-3)
+cmd:option('learningRate', 1e-2)
 cmd:option('learningRateDecay',5e-6)
 cmd:option('beta1', 0.9)
 cmd:option('beta2', 0.999)
