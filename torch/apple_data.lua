@@ -17,7 +17,6 @@ do
         self.input_size = {240,250,500};
         self.mean_data=npy4th.loadnpy(self.mean_file);
 
-
         self.start_idx_pos = 1;
         self.start_idx_neg = 1;
         -- self.humanImage = false;
@@ -81,6 +80,7 @@ do
         local start_idx_neg_before = self.start_idx_neg
         local start_idx_pos_before = self.start_idx_pos
         -- local tt=os.clock();
+        self.training_set.lines_batch={};
         if not self.training_set.data then
             self.training_set.data = torch.zeros(total_batch_size,self.input_size[1],
         										self.input_size[2],self.input_size[3]);
@@ -103,12 +103,12 @@ do
             self.lines_neg,self.start_idx_neg,self.batch_size_pos,-1)
         -- print ('add neg',os.clock()-tt);
 
-        if self.start_idx_neg<start_idx_neg_before then
+        if self.start_idx_neg<start_idx_neg_before and self.shuffle then
             print ('shuffling neg'..self.start_idx_neg..' '..start_idx_neg_before )
             self.lines_neg = self:shuffleLines(self.lines_neg);
         end
 
-        if self.start_idx_pos<start_idx_pos_before then
+        if self.start_idx_pos<start_idx_pos_before and self.shuffle then
             print ('shuffling pos'..self.start_idx_pos..' '..start_idx_pos_before )
             self.lines_pos=self:shuffleLines(self.lines_pos);
         end
@@ -134,6 +134,7 @@ do
             training_set.data[start_idx_batch+curr_idx] = img;
             -- end
             training_set.label[start_idx_batch+curr_idx]:fill(label);
+            training_set.lines_batch[start_idx_batch+curr_idx]=img_path;
             list_idx = (list_idx%list_size)+1;
         end
         -- print ('total',os.clock()-tt);
