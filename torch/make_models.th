@@ -62,9 +62,17 @@ end
 
 function main()
 	-- local model_file='../models/alexnet_classifier_lastScratch_untrained.dat'
-	local out_file='../models/small_conv.dat'
+	local out_file='../models/small_conv_3.dat'
 	local net=nn.Sequential();
-	net:add(nn.SpatialConvolution(240,3,11,11,11,11));
+	-- net:add(nn.SpatialBatchNormalization(240,nil,nil,false))
+	-- net:add(nn.SpatialConvolution(240,3,11,11,11,11));
+	net:add(nn.SpatialConvolution(240,12,1,1,1,1));
+	net:add(nn.ReLU());
+	net:add(nn.SpatialBatchNormalization(12,nil,nil,false))
+	net:add(nn.SpatialConvolution(12,3,3,3,3,3));
+	net:add(nn.SpatialMaxPooling(3,3,3,3));
+	net:add(nn.ReLU());
+	net:add(nn.SpatialBatchNormalization(3,nil,nil,false))
 	net:add(nn.SpatialConvolution(3,1,1,1));
 	net=makeXavierGaussian(net);
 	net=net:cuda();

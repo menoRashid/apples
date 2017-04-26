@@ -21,13 +21,13 @@ function getOptimStateTotal(params,parameters,layer_pivot,logger)
         end
 
         local learningRate_curr=params.learningRate;
-        if layer_num<=layer_pivot[1] then
-            learningRate_curr=1;
-        elseif layer_num>=layer_pivot[2] then
-            learningRate_curr=learningRate_curr;
-        else
-            learningRate_curr=1/100*learningRate_curr;
-        end
+        -- if layer_num<=layer_pivot[1] then
+        --     learningRate_curr=1;
+        -- elseif layer_num>=layer_pivot[2] then
+        --     learningRate_curr=learningRate_curr;
+        -- else
+        --     learningRate_curr=1/100*learningRate_curr;
+        -- end
 
         local optimState_curr={learningRate=learningRate_curr,
                 learningRateDecay=params.learningRateDecay ,
@@ -72,7 +72,7 @@ end
 
 -- local fevalScore = function(x)
 --     if x ~= parameters then
--- 	    parameters:copy(x)
+--      parameters:copy(x)
 --     end
 --     -- local t=os.clock();
 --     td:getTrainingData();
@@ -110,7 +110,7 @@ function main(params)
         params.limit=nil;
     end
     
-	local out_dir=params.outDir
+    local out_dir=params.outDir
     
     
     paths.mkdir(out_dir);
@@ -139,7 +139,7 @@ function main(params)
     cutorch.setDevice(params.gpu);
 
     
-	-- optimState={learningRate=params.learningRate,
+    -- optimState={learningRate=params.learningRate,
  --        learningRateDecay=params.learningRateDecay ,
  --        beta1=params.beta1 ,
  --        beta2=params.beta2 ,
@@ -211,7 +211,7 @@ function main(params)
     local val_losses_iter={};
 
     for i=1,params.iterations do
-    	
+        
         -- local _, minibatch_loss = optimMethod(fevalScore,parameters, optimState)
         local minibatch_loss = doTheUpdate(td,net,criterion,parameters,gradParameters,optimMethod,optimStateTotal)
         losses[#losses + 1] = minibatch_loss -- append the new loss        
@@ -266,7 +266,7 @@ function main(params)
             local out_file_loss_intermediate=out_file_loss_intermediate_pre..i..'.npy';
             npy4th.savenpy(out_file_loss_intermediate, torch.Tensor(losses))        
         end
-	end
+    end
 
     -- save final model
     net:clearState();
@@ -283,8 +283,8 @@ cmd:text()
 cmd:text('Train Apple Detection network')
 cmd:text()
 cmd:text('Options')
-cmd:option('-model','../models/alex_conv_dropout.dat','model to load')
-cmd:option('-outDir','../experiments/train_check','directory to write output');
+cmd:option('-model','../models/small_conv_3.dat','model to load')
+cmd:option('-outDir','../experiments/train_small_3','directory to write output');
 
 cmd:option('-limit',-1,'num of training data to read');
 cmd:option('-shuffle',true,'shuffle input data');
@@ -292,7 +292,7 @@ cmd:option('-batch_size_neg',6,'batch size negative data');
 cmd:option('-batch_size_pos',6,'batch size positive data'); 
 
 cmd:option('-iterations',50*epoch_size,'num of iterations to run');
-cmd:option('-saveAfter',5*epoch_size,'num of iterations after which to save model');
+cmd:option('-saveAfter',1*epoch_size,'num of iterations after which to save model');
 cmd:option('-dispAfter',1,'num iterations after which to display training loss');
 cmd:option('-testAfter',1*epoch_size,'num iterations after which to display training loss');
 cmd:option('-dispPlotAfter',1*epoch_size,'num iterations after which to plot loss');
@@ -304,7 +304,7 @@ cmd:option('-mean_path','../data/mean_im_small.npy')
 cmd:option('-val_pos_path','../data/pos_test_small.txt')
 cmd:option('-val_neg_path','../data/neg_test_small.txt')
 
-cmd:option('learningRate', 1e-2)
+cmd:option('learningRate', 1e-3)
 cmd:option('learningRateDecay',5e-6)
 cmd:option('beta1', 0.9)
 cmd:option('beta2', 0.999)

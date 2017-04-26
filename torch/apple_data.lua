@@ -87,7 +87,7 @@ do
         end
         -- self.training_set.label = torch.zeros(total_batch_size,1);
         if not self.training_set.label then
-            self.training_set.label = torch.zeros(total_batch_size,1,7,15);
+            self.training_set.label = torch.zeros(total_batch_size,1,27,55);
         end
         -- print ('setting up',os.clock()-tt);
 

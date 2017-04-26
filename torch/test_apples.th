@@ -97,7 +97,8 @@ function main(params)
             end    
             local batch_inputs = vd.training_set.data:clone();
             local batch_targets = vd.training_set.label;
-            local outputs=sigmoid:forward(net:forward(batch_inputs));
+            -- local outputs=sigmoid:forward(net:forward(batch_inputs));
+            local outputs=net:forward(batch_inputs);
             local loss = criterion:forward(outputs,batch_targets);
             
             val_losses[#val_losses+1]=loss;
@@ -107,13 +108,13 @@ function main(params)
             logger:writeString(dump.tostring(disp_str)..'\n');
             print(disp_str)
 			
-			local im_3d_all=net:get(1):forward(vd.training_set.data:clone())
+			-- local im_3d_all=net:get(1):forward(vd.training_set.data:clone())
             for im_num=1,outputs:size(1) do
             	local input_im=paths.basename(vd.training_set.lines_batch[im_num],'.npy');
-            	print (input_im);
+            	
             	local im_in=vd.training_set.data[im_num][100];
             	local im_out=outputs[im_num][1];
-            	local im_3d=im_3d_all[im_num];
+            	-- local im_3d=im_3d_all[im_num];
             	local class;
             	if torch.max(batch_targets[im_num])==-1 then
             		class='neg';
@@ -121,11 +122,26 @@ function main(params)
             		class='pos';
             	end
             	-- print (class,im_out)
-            	print (class,torch.sum(im_out[im_out:le(0.5)])/torch.sum(im_out:le(0.5)),torch.sum(im_out[im_out:gt(0.5)])/torch.sum(im_out:gt(0.5)))
+            	-- print (class,torch.sum(im_out[im_out:le(0.5)])/torch.sum(im_out:le(0.5)),torch.sum(im_out[im_out:gt(0.5)])/torch.sum(im_out:gt(0.5)))
+            	local im_out_c=im_out:clone();
+            	im_out[im_out_c:ge(1)]=1;
+            	im_out[im_out_c:lt(1)]=0.5;
+            	im_out[im_out_c:le(-1)]=0;
+
+            	local correct='false';
+            	if class=='pos' and torch.sum(im_out:ge(1))>torch.sum(im_out:le(0)) then
+            		correct='true';
+            	end
+            	if class=='neg' and torch.sum(im_out:le(0))>torch.sum(im_out:ge(1)) then
+            		correct='true';
+            	end
+            	print (input_im,class,correct)
+            	
+            	
             	local out_file_pre=paths.concat(out_dir_images,input_im..'_'..class);
             	image.save(out_file_pre..'_input.jpg',image.toDisplayTensor(im_in));
                 image.save(out_file_pre..'_pred.jpg', im_out)
-                image.save(out_file_pre..'_3d.jpg', image.toDisplayTensor(im_3d))
+                -- image.save(out_file_pre..'_3d.jpg', image.toDisplayTensor(im_3d))
             end
 
 	        -- if not outputs_all then
@@ -198,7 +214,11 @@ cmd:option('beta2', 0.999)
 cmd:option('epsilon', 1e-8)
 
 cmd:option('-gpu',1,'gpu to run the training on');
-cmd:option('-modelTest','../experiments/train_dropout_5e-3/intermediate/model_all_400.dat');
+-- cmd:option('-modelTest','../experiments/train_dropout_5e-3/intermediate/model_all_400.dat');
+
+cmd:option('-outDir','../experiments/train_small_3','directory to write output');
+cmd:option('-modelTest','../experiments/train_small_3/intermediate/model_all_1000.dat');
+
 cmd:text()
 
 params = cmd:parse(arg)
