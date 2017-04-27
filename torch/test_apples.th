@@ -124,7 +124,7 @@ function main(params)
             	-- print (class,im_out)
             	-- print (class,torch.sum(im_out[im_out:le(0.5)])/torch.sum(im_out:le(0.5)),torch.sum(im_out[im_out:gt(0.5)])/torch.sum(im_out:gt(0.5)))
             	local im_out_c=im_out:clone();
-            	im_out[im_out_c:ge(1)]=1;
+            	im_out[im_out_c:gt(1)]=1;
             	im_out[im_out_c:lt(1)]=0.5;
             	im_out[im_out_c:le(-1)]=0;
 
@@ -137,8 +137,7 @@ function main(params)
             	end
             	print (input_im,class,correct)
             	
-            	
-            	local out_file_pre=paths.concat(out_dir_images,input_im..'_'..class);
+            	local out_file_pre=paths.concat(out_dir_images,input_im..'_'..class..'_'..correct);
             	image.save(out_file_pre..'_input.jpg',image.toDisplayTensor(im_in));
                 image.save(out_file_pre..'_pred.jpg', im_out)
                 -- image.save(out_file_pre..'_3d.jpg', image.toDisplayTensor(im_3d))
@@ -216,8 +215,11 @@ cmd:option('epsilon', 1e-8)
 cmd:option('-gpu',1,'gpu to run the training on');
 -- cmd:option('-modelTest','../experiments/train_dropout_5e-3/intermediate/model_all_400.dat');
 
-cmd:option('-outDir','../experiments/train_small_3','directory to write output');
-cmd:option('-modelTest','../experiments/train_small_3/intermediate/model_all_1000.dat');
+-- cmd:option('-outDir','../experiments/train_small_3','directory to write output');
+-- cmd:option('-modelTest','../experiments/train_small_3/intermediate/model_all_1000.dat');
+
+cmd:option('-outDir','../experiments/train_small_3_hlr','directory to write output');
+cmd:option('-modelTest','../experiments/train_small_3_hlr/final/model_all_final.dat');
 
 cmd:text()
 

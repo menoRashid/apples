@@ -284,15 +284,15 @@ cmd:text('Train Apple Detection network')
 cmd:text()
 cmd:text('Options')
 cmd:option('-model','../models/small_conv_3.dat','model to load')
-cmd:option('-outDir','../experiments/train_small_3','directory to write output');
+cmd:option('-outDir','../experiments/train_small_3_hlr','directory to write output');
 
 cmd:option('-limit',-1,'num of training data to read');
 cmd:option('-shuffle',true,'shuffle input data');
 cmd:option('-batch_size_neg',6,'batch size negative data'); 
 cmd:option('-batch_size_pos',6,'batch size positive data'); 
 
-cmd:option('-iterations',50*epoch_size,'num of iterations to run');
-cmd:option('-saveAfter',1*epoch_size,'num of iterations after which to save model');
+cmd:option('-iterations',100*epoch_size,'num of iterations to run');
+cmd:option('-saveAfter',10*epoch_size,'num of iterations after which to save model');
 cmd:option('-dispAfter',1,'num iterations after which to display training loss');
 cmd:option('-testAfter',1*epoch_size,'num iterations after which to display training loss');
 cmd:option('-dispPlotAfter',1*epoch_size,'num iterations after which to plot loss');
@@ -304,7 +304,7 @@ cmd:option('-mean_path','../data/mean_im_small.npy')
 cmd:option('-val_pos_path','../data/pos_test_small.txt')
 cmd:option('-val_neg_path','../data/neg_test_small.txt')
 
-cmd:option('learningRate', 1e-3)
+cmd:option('learningRate', 1e-2)
 cmd:option('learningRateDecay',5e-6)
 cmd:option('beta1', 0.9)
 cmd:option('beta2', 0.999)
@@ -315,4 +315,6 @@ cmd:text()
 
 params = cmd:parse(arg)
 main(params);
+
+
 
