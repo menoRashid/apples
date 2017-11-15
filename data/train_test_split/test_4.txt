@@ -1,0 +1,12 @@
+../data/npy/CAC_Jul02/CAC22_Jul02_B.npy
+../data/npy/CAC_Jul02/CAC22_Jul02_TOP.npy
+../data/npy/CAB_Jul02/CAB22_Jul02_B.npy
+../data/npy/CAB_Jul02/CAB22_Jul02_TOP.npy
+../data/npy/CAA_Jul02/CAA22_Jul02_B.npy
+../data/npy/CAA_Jul02/CAA22_Jul02_TOP.npy
+../data/npy/CAD_Jul02/CAD02_Jul02_B.npy
+../data/npy/CAD_Jul02/CAD02_Jul02_TOP.npy
+../data/npy/CAD_Jul02/CAD013_Jul02_TOP.npy
+../data/npy/CAD_Jul02/CAD012_Jul02_TOP.npy
+../data/npy/CAD_Jul02/CAD07_Jul02_B.npy
+../data/npy/CAD_Jul02/CAD03_Jul02_B.npy

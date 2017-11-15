@@ -1,0 +1,228 @@
+require 'image'
+npy4th = require 'npy4th'
+require 'apple_data';
+require 'cunn'
+require 'cudnn'
+require 'nn';
+require 'optim'
+npy4th=require 'npy4th';
+require 'torchx';
+require 'gnuplot';
+dump=require 'dump';
+visualize=require 'visualize';
+
+function main(params) 
+    print ('setting_threads');
+    torch.setnumthreads(1);
+    if params.limit<0 then
+        params.limit=nil;
+    end
+    
+	local out_dir=params.outDir
+    
+    
+    paths.mkdir(out_dir);
+    local out_dir_images=paths.concat(out_dir,'test_images');
+    paths.mkdir(out_dir_images);
+    
+    local out_file_log=paths.concat(out_dir_images,'log_test.txt');
+    local logger=torch.DiskFile(out_file_log,'w');
+
+    logger:writeString(dump.tostring(params)..'\n');
+    print (params);
+
+    cutorch.setDevice(params.gpu);
+
+    local optimState       
+    local optimMethod      
+
+	optimMethod = optim.adam
+	optimState={learningRate=params.learningRate,
+        learningRateDecay=params.learningRateDecay ,
+        beta1=params.beta1 ,
+        beta2=params.beta2 ,
+        epsilon=params.epsilon }
+
+
+    print ('loading network');
+    logger:writeString(dump.tostring('loading network')..'\n');
+    net = torch.load(params.modelTest);
+    
+    print ('done loading network');
+    logger:writeString(dump.tostring('done loading network')..'\n');
+    print (net);
+
+
+    logger:writeString(dump.tostring('making cuda')..'\n');
+    print ('making cuda');
+    net = net:cuda();
+    logger:writeString(dump.tostring('done')..'\n');
+    print ('done');
+
+    print ('loading params');
+    logger:writeString(dump.tostring('loading params')..'\n');
+    parameters, gradParameters = net:getParameters()
+    logger:writeString(dump.tostring('loading done')..'\n');
+    print ('loading done');
+    
+    
+    local vd_params={file_path_pos = params.val_pos_path,
+                file_path_neg = params.val_neg_path,
+                mean_file = params.mean_path,
+                shuffle = false,
+                batch_size_pos = params.batch_size_pos,
+                batch_size_neg = params.batch_size_neg,
+                limit = params.limit};
+
+    vd = data(vd_params)    
+    
+    criterion = nn.MarginCriterion():cuda();
+    -- print (criterion.sizeAverage);
+    -- criterion.sizeAverage=false;
+ 
+    local losses = {};
+    local losses_iter={};
+    local val_losses={};
+    local val_losses_iter={};
+    -- local outputs_all=nil;
+    -- local preds_all=nil;
+    -- local batch_targets_all=nil;
+    local sigmoid=nn.Sigmoid():cuda();
+    for i=1,params.iterations do
+            net:evaluate();
+            vd:getTrainingData();
+            if vd.training_set.data:type()~='torch.CudaTensor' then
+                vd.training_set.data = vd.training_set.data:cuda();
+                vd.training_set.label = vd.training_set.label:cuda();
+            end    
+            local batch_inputs = vd.training_set.data:clone();
+            local batch_targets = vd.training_set.label;
+            -- local outputs=sigmoid:forward(net:forward(batch_inputs));
+            local outputs=net:forward(batch_inputs);
+            local loss = criterion:forward(outputs,batch_targets);
+            
+            val_losses[#val_losses+1]=loss;
+            val_losses_iter[#val_losses_iter+1]=i;
+
+            disp_str=string.format("minibatches processed: %6s, val loss = %6.6f", i, val_losses[#val_losses])
+            logger:writeString(dump.tostring(disp_str)..'\n');
+            print(disp_str)
+			
+			-- local im_3d_all=net:get(1):forward(vd.training_set.data:clone())
+            for im_num=1,outputs:size(1) do
+            	local input_im=paths.basename(vd.training_set.lines_batch[im_num],'.npy');
+            	
+            	local im_in=vd.training_set.data[im_num][100];
+            	local im_out=outputs[im_num][1];
+            	-- local im_3d=im_3d_all[im_num];
+            	local class;
+            	if torch.max(batch_targets[im_num])==-1 then
+            		class='neg';
+            	else
+            		class='pos';
+            	end
+            	-- print (class,im_out)
+            	-- print (class,torch.sum(im_out[im_out:le(0.5)])/torch.sum(im_out:le(0.5)),torch.sum(im_out[im_out:gt(0.5)])/torch.sum(im_out:gt(0.5)))
+            	local im_out_c=im_out:clone();
+            	im_out[im_out_c:gt(1)]=1;
+            	im_out[im_out_c:lt(1)]=0.5;
+            	im_out[im_out_c:le(-1)]=0;
+
+            	local correct='false';
+            	if class=='pos' and torch.sum(im_out:ge(1))>torch.sum(im_out:le(0)) then
+            		correct='true';
+            	end
+            	if class=='neg' and torch.sum(im_out:le(0))>torch.sum(im_out:ge(1)) then
+            		correct='true';
+            	end
+            	print (input_im,class,correct)
+            	
+            	local out_file_pre=paths.concat(out_dir_images,input_im..'_'..class..'_'..correct);
+            	image.save(out_file_pre..'_input.jpg',image.toDisplayTensor(im_in));
+                image.save(out_file_pre..'_pred.jpg', im_out)
+                -- image.save(out_file_pre..'_3d.jpg', image.toDisplayTensor(im_3d))
+            end
+
+	        -- if not outputs_all then
+	        --     outputs_all=outputs:clone();    
+	        -- else
+	        --     outputs_all=torch.cat(outputs_all,outputs,1);
+	        -- end
+
+	        -- if not batch_targets_all then
+	        --     batch_targets_all = batch_targets:clone();
+	        -- else
+	        --     batch_targets_all = torch.cat(batch_targets_all,batch_targets,1);
+	        -- end
+
+	        -- if not preds_all then
+	        --     preds_all = indices:clone();
+	        -- else
+	        --     preds_all = torch.cat(preds_all,indices,1);
+	        -- end
+        
+        -- conf:batchAdd( outputs,batch_targets);
+        -- local s=tostring(conf)
+        -- logger:writeString(s..'\n');       
+        -- print (out_file_log)     
+    end
+    -- print (outputs_all:size())
+    -- print (batch_targets_all:size());
+    -- print (#vd.lines_face,outputs_all:size(1),batch_targets_all:size(1))
+    
+    -- assert (outputs_all:size(1)>=#vd.lines_pos+#vd.lines_neg))
+    -- outputs_all=outputs_all[{{1,#vd.lines_pos+#vd.lines_neg)},{}}]
+    -- preds_all=preds_all[{{1,#vd.lines_pos+#vd.lines_neg)}}];
+
+    -- npy4th.savenpy(out_file_pred, preds_all)
+    -- npy4th.savenpy(out_file_gt, batch_targets_all)
+end
+
+
+epoch_size=20
+cmd = torch.CmdLine()
+cmd:text()
+cmd:text('Train Apple Detection network')
+cmd:text()
+cmd:text('Options')
+cmd:option('-model','../models/alex_conv_dropout.dat','model to load')
+cmd:option('-outDir','../experiments/train_dropout_5e-3','directory to write output');
+
+cmd:option('-limit',-1,'num of training data to read');
+cmd:option('-shuffle',true,'shuffle input data');
+cmd:option('-batch_size_neg',6,'batch size negative data'); 
+cmd:option('-batch_size_pos',8,'batch size positive data'); 
+
+cmd:option('-iterations',3,'num of iterations to run');
+cmd:option('-saveAfter',5*epoch_size,'num of iterations after which to save model');
+cmd:option('-dispAfter',1,'num iterations after which to display training loss');
+cmd:option('-testAfter',1*epoch_size,'num iterations after which to display training loss');
+cmd:option('-dispPlotAfter',1*epoch_size,'num iterations after which to plot loss');
+
+cmd:option('-pos_path','../data/pos_train_small.txt')
+cmd:option('-neg_path','../data/neg_train_small.txt')
+cmd:option('-mean_path','../data/mean_im_small.npy')
+
+cmd:option('-val_pos_path','../data/pos_test_small.txt')
+cmd:option('-val_neg_path','../data/neg_test_small.txt')
+
+cmd:option('learningRate', 5e-3)
+cmd:option('learningRateDecay',5e-6)
+cmd:option('beta1', 0.9)
+cmd:option('beta2', 0.999)
+cmd:option('epsilon', 1e-8)
+
+cmd:option('-gpu',1,'gpu to run the training on');
+-- cmd:option('-modelTest','../experiments/train_dropout_5e-3/intermediate/model_all_400.dat');
+
+-- cmd:option('-outDir','../experiments/train_small_3','directory to write output');
+-- cmd:option('-modelTest','../experiments/train_small_3/intermediate/model_all_1000.dat');
+
+cmd:option('-outDir','../experiments/train_small_3_hlr','directory to write output');
+cmd:option('-modelTest','../experiments/train_small_3_hlr/final/model_all_final.dat');
+
+cmd:text()
+
+params = cmd:parse(arg)
+main(params);
+

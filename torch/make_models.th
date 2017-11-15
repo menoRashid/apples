@@ -1,0 +1,90 @@
+require 'nn';
+require 'cunn'
+require 'cudnn'
+
+require 'image';
+npy4th=require 'npy4th'
+
+function makeXavierGaussian(model)
+    for idx=1,#model do
+        local m = model.modules[idx]
+        if m.weight then
+            local var=nil;
+            if m.__typename == 'nn.SpatialConvolution' then
+                var = {m.nInputPlane*m.kH*m.kW, m.nOutputPlane*m.kH*m.kW}
+            elseif m.__typename == 'nn.SpatialConvolutionMM' then
+                var = {m.nInputPlane*m.kH*m.kW, m.nOutputPlane*m.kH*m.kW}
+            elseif m.__typename == 'nn.LateralConvolution' then
+                var = {m.nInputPlane*1*1, m.nOutputPlane*1*1}
+            elseif m.__typename == 'nn.VerticalConvolution' then
+                var = {1*m.kH*m.kW, 1*m.kH*m.kW}
+            elseif m.__typename == 'nn.HorizontalConvolution' then
+                var = {1*m.kH*m.kW, 1*m.kH*m.kW}
+            elseif m.__typename == 'nn.Linear' then
+                var = {m.weight:size(2), m.weight:size(1)}
+            elseif m.__typename == 'nn.TemporalConvolution' then
+                var = {m.weight:size(2), m.weight:size(1)}
+            end
+            if var then
+	            var = 2/(var[1] + var[2])
+	            m.weight=torch.randn(m.weight:size()):mul(torch.sqrt(var));
+	            m.bias=torch.zeros(m.bias:size());
+	        end
+        end
+    end
+    return model
+end
+
+function makeConvAlexnet()
+	local model_file='../models/alexnet_classifier_lastScratch_untrained.dat'
+	local out_file='../models/alex_conv_dropout.dat'
+	local net=torch.load(model_file);
+	print (net);
+	local input = torch.zeros(4,240,250,500);
+    input=input:cuda();
+    for rem_num=#net,22,-1 do
+        net:remove(rem_num);
+    end
+    
+    net:insert(nn.SpatialConvolution(240,3,1,1),1);
+    -- net:insert(nn.Dropout(0.5),2);
+    net:add(nn.Dropout(0.5));
+    net:add(nn.SpatialConvolution(256,1,1,1));
+    print (net);
+    net=net:cuda();
+    local out=net:forward(input);
+    net:double();
+    net:clearState();
+    torch.save(out_file,net);
+    print (out:size())
+
+end
+
+function main()
+	-- local model_file='../models/alexnet_classifier_lastScratch_untrained.dat'
+	local out_file='../models/small_conv_3.dat'
+	local net=nn.Sequential();
+	-- net:add(nn.SpatialBatchNormalization(240,nil,nil,false))
+	-- net:add(nn.SpatialConvolution(240,3,11,11,11,11));
+	net:add(nn.SpatialConvolution(240,12,1,1,1,1));
+	net:add(nn.ReLU());
+	net:add(nn.SpatialBatchNormalization(12,nil,nil,false))
+	net:add(nn.SpatialConvolution(12,3,3,3,3,3));
+	net:add(nn.SpatialMaxPooling(3,3,3,3));
+	net:add(nn.ReLU());
+	net:add(nn.SpatialBatchNormalization(3,nil,nil,false))
+	net:add(nn.SpatialConvolution(3,1,1,1));
+	net=makeXavierGaussian(net);
+	net=net:cuda();
+    print (net);
+	
+	local input = torch.zeros(4,240,250,500):cuda();
+    local out=net:forward(input);
+    print (out:size())
+    net:double();
+    net:clearState();
+    torch.save(out_file,net);
+    
+end
+
+main();

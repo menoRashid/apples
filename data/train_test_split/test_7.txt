@@ -1,0 +1,10 @@
+../data/npy/CAC_Jul02/CAC32_Jul02_TOP.npy
+../data/npy/CAB_Jul02/CAB32_Jul02_B.npy
+../data/npy/CAB_Jul02/CAB32_Jul02_TOP.npy
+../data/npy/CAA_Jul02/CAA32_Jul02_TOP.npy
+../data/npy/CAD_Jul02/CAD02_Jul02_B.npy
+../data/npy/CAD_Jul02/CAD02_Jul02_TOP.npy
+../data/npy/CAD_Jul02/CAD011_Jul02_B.npy
+../data/npy/CAD_Jul02/CAD05_Jul02_TOP.npy
+../data/npy/CAD_Jul02/CAD05_Jul02_B.npy
+../data/npy/CAD_Jul02/CAD016_Jul02_B.npy

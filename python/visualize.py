@@ -3,7 +3,7 @@ import numpy as np;
 matplotlib.use('Agg')
 # matplotlib.use('PS') 
 import matplotlib.pyplot as plt;
-matplotlib.rcParams.update({'font.size': 16})
+# matplotlib.rcParams.update({'font.size': 16})
 from matplotlib.backends.backend_pdf import PdfPages
 import os;
 from PIL import Image,ImageDraw,ImageFont;
@@ -180,7 +180,7 @@ def plotErrorBars(dict_to_plot,x_lim,y_lim,xlabel,y_label,title,out_file,margin=
     plt.savefig(out_file);
     plt.close();
 
-def plotSimple(xAndYs,out_file,title='',xlabel='',ylabel='',legend_entries=None,loc=0,outside=False,logscale=False,colors=None,xticks=None):
+def plotSimple(xAndYs,out_file=None,title='',xlabel='',ylabel='',legend_entries=None,loc=0,outside=False,logscale=False,colors=None,xticks=None):
     plt.title(title);
     plt.grid(1);
     plt.xlabel(xlabel);
@@ -192,9 +192,11 @@ def plotSimple(xAndYs,out_file,title='',xlabel='',ylabel='',legend_entries=None,
     for idx_x_y,(x,y) in enumerate(xAndYs):
         if colors is not None:
             color_curr=colors[idx_x_y];
-            handle,=plt.plot(x,y,color_curr,linewidth=5.0);
+            handle,=plt.plot(x,y,color_curr)
+                # ,linewidth=2.0);
         else:
-            handle,=plt.plot(x,y,linewidth=5.0);
+            handle,=plt.plot(x,y)
+                # ,linewidth=2.0);
 
         handles.append(handle);
     if legend_entries is not None:
@@ -207,12 +209,13 @@ def plotSimple(xAndYs,out_file,title='',xlabel='',ylabel='',legend_entries=None,
         ax = plt.gca()
         ax.set_xticks(xticks)
 
-    if legend_entries is not None:
-        plt.savefig(out_file,bbox_extra_artists=(lgd,), bbox_inches='tight')
-    else:
-        plt.savefig(out_file);
+    if out_file is not None:
+        if legend_entries is not None:
+            plt.savefig(out_file,bbox_extra_artists=(lgd,), bbox_inches='tight')
+        else:
+            plt.savefig(out_file);
 
-    plt.close();    
+        plt.close();    
 
 def writeHTMLForFolder(path_to_im,ext='jpg',height=300,width=300):
     im_files=[file_curr for file_curr in os.listdir(path_to_im) if file_curr.endswith(ext)];
