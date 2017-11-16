@@ -215,6 +215,10 @@ def train_model(train_file,
             model = get_model_sequential_3(num_classes)
         elif model_num=='3a':
             model = get_model_sequential_3a(num_classes)
+        elif model_num=='2a':
+            model = get_model_sequential_2a(num_classes)
+        elif model_num==4:
+            model = get_model_sequential_4(num_classes)
         model = model.cuda()
     else:
         model = torch.load(res_model)
@@ -274,6 +278,8 @@ def test_model(test_file,mean_file,out_dir_train,model_num,pos_neg):
 
     model = torch.load(res_model)
     model.eval()
+    # out_dir_test = os.path.join(out_dir_train,'results_noEval')
+    
 
     batch_size = 1
     test_files = util.readLinesFromFile(test_file)
@@ -327,13 +333,14 @@ def script_train_test():
     res_model =  None
     # '../experiments/simple_False_0/model_150.pt'
     folder_arr = [str(val) for val in [pos_neg,split_num,num_epochs,lr,dec_after]]
-    model_num = '3a'
+    model_num = 4
+    # '2a'
     # out_dir_train = '../experiments/simple_zero_background_weights_'+'_'.join(folder_arr)
     out_dir_train = '../experiments/model_'+str(model_num)+'_regular_weights_'+'_'.join(folder_arr)
 
     # folder_arr = [str(val) for val in [pos_neg,split_num,40,lr,40]]
-    # out_dir_res = '../experiments/model_3_regular_weights_'+'_'.join(folder_arr)
-    # res_model = os.path.join(out_dir_res,'model_599.pt')
+    # out_dir_res = '../experiments/model_'+str(model_num)+'_regular_weights_'+'_'.join(folder_arr)
+    # res_model = os.path.join(out_dir_res,'model_225.pt')
     # out_dir_train = '../experiments/model_2_regular_weights_res_no_dip_'+'_'.join(folder_arr)
     
     train_model(train_file,
@@ -349,7 +356,7 @@ def script_train_test():
                 out_dir_train,
                 lr,dec_after, model_num)
 
-    model_num = 899
+    model_num = 599
     test_model(test_file,mean_file,out_dir_train,model_num,pos_neg)
 
 
@@ -378,20 +385,16 @@ def get_model_sequential_2(num_classes):
 def get_model_sequential_2a(num_classes):
     print '2a'
     model = nn.Sequential(OrderedDict([
-              # ('pool1',nn.AvgPool2d(5, 2,padding = 2)),
-              # ('conv3', nn.Conv2d(240, 16, 5, stride = 5)),
               ('conv1', nn.Conv2d(240, 64, 11, stride = 5, padding = 5)),
               ('relu1', nn.ReLU()),
-              # ,
+              ('bn1', nn.BatchNorm2d(64)),
+              
               ('conv2', nn.Conv2d(64, 32, 5, stride = 2, padding = 2)),
               ('relu2', nn.ReLU()),
-
+              ('bn2', nn.BatchNorm2d(32)),
+              
               ('conv3', nn.Conv2d(32, num_classes, 1, stride = 1, padding = 0)),
-              # ('relu3', nn.ReLU()),
-              # ('pool2',nn.AvgPool2d(2, 2)),
-              # ('convt1', nn.ConvTranspose2d(64, num_classes, 5, stride = 5)),
-              # ('convt4', nn.ConvTranspose2d(16, 1, 2, stride = 2)),
-              # ('conv3', nn.ConvTranspose2d(64, 1, 11, stride = 5)),
+              
               ('upsample', nn.Upsample(size=[250,1600],mode='bilinear')),
               ('prediction', nn.LogSoftmax())
             ]))
@@ -445,7 +448,24 @@ def get_model_sequential_3a(num_classes):
             ]))
     return model
 
+def get_model_sequential_4(num_classes):
+    model = nn.Sequential(OrderedDict([
+              ('pool1',nn.AvgPool2d(5, 2,padding = 2)),
+              ('conv1', nn.Conv2d(240, 64, 11, stride = 5, padding = 5)),
+              ('relu1', nn.ReLU()),
+              ('bn1', nn.BatchNorm2d(64)),
               
+              ('convt1', nn.ConvTranspose2d(64, 32, 5, stride = 5)),
+              ('relut1', nn.ReLU()),
+              ('bnt1', nn.BatchNorm2d(32)),
+              
+              ('conv3', nn.Conv2d(32, num_classes, 1, stride = 1, padding = 0)),
+              ('upsample', nn.Upsample(size=[250,1600],mode='bilinear')),
+              ('prediction', nn.LogSoftmax())
+            ]))
+    return model   
+
+
 def main():
     script_train_test()
 
@@ -456,7 +476,7 @@ def main():
     num_classes = 5
     print data.shape
     print np.min(data), np.max(data)
-    net = get_model_sequential_3(num_classes)
+    net = get_model_sequential_4(num_classes)
     print net
     torch.cuda.device(0)
 
